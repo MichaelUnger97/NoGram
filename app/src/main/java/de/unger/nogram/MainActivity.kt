@@ -1,6 +1,7 @@
 package de.unger.nogram
 
 import android.os.Bundle
+import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -8,10 +9,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import de.unger.nogram.ui.theme.NoGramTheme
 
@@ -52,8 +55,13 @@ fun NoGramApp(htmlState: String) {
 @Composable
 fun HtmlDisplay(html: String) {
     AndroidView(
+        modifier = Modifier.fillMaxSize(),
         factory = { context ->
             WebView(context).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.loadsImagesAutomatically = true
@@ -66,13 +74,13 @@ fun HtmlDisplay(html: String) {
             val previousHtml = webView.tag as? String
             if (previousHtml != html) {
                 webView.tag = html
-                webView.loadUrl(
-                    "https://www.instagram.com/"/*,
+                webView.loadDataWithBaseURL(
+                    "https://www.instagram.com/",
                     html,
                     "text/html",
                     "UTF-8",
                     "https://www.instagram.com/"
-                    */
+
                 )
             }
         }
