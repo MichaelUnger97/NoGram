@@ -5,10 +5,9 @@ import android.net.http.HttpEngine
 import android.net.http.HttpEngine.Builder.HTTP_CACHE_DISK
 import java.io.File
 import java.util.concurrent.Executor
-import java.util.concurrent.Executors
 
 class NoGramHttpEngine(context: Context) {
-    val httpExecutor: Executor = Executors.newSingleThreadExecutor()
+    val httpExecutor: Executor = context.mainExecutor
     private val cacheDir = File(context.cacheDir, "http_cache").apply {
         if (!exists()) {
             mkdirs()

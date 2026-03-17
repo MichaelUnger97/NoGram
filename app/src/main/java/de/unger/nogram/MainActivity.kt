@@ -1,54 +1,76 @@
 package de.unger.nogram
 
 import android.os.Bundle
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
+import androidx.activity.viewModels
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import de.unger.net.NoGramCallback
-import de.unger.net.NoGramHttpEngine
-import de.unger.net.NoGramRequests
+import androidx.compose.ui.viewinterop.AndroidView
 import de.unger.nogram.ui.theme.NoGramTheme
 
 class MainActivity : ComponentActivity() {
-    private var networkResponse by mutableStateOf("loading...")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val viewModel: NoGramViewModel by viewModels()
+        // 1. Call setContent ONCE
         setContent {
+            // 2. Use collectAsState to observe changes safely in Compose
+            val htmlState by viewModel.uiState.collectAsState()
             NoGramTheme {
-                NoGramApp(networkResponse)
+                NoGramApp(htmlState)
             }
         }
-        val engine = NoGramHttpEngine(applicationContext)
-        val nogramCallback = NoGramCallback {
-            networkResponse =
-                it.keys.map { "${it.headers.asList.component1()} ${it.headers.asList.component2()}" }
-                    .joinToString { it }
-        }
-        NoGramRequests(engine, nogramCallback).home()
+        viewModel.home()
     }
 }
 
 @Composable
-fun NoGramApp(responseText: String) {
-    NavigationSuiteScaffold(
-        navigationSuiteItems = { /* ... your items ... */ }
-    ) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            Text(
-                text = responseText,
-                modifier = Modifier.padding(innerPadding)
-            )
+fun NoGramApp(htmlState: String) {
+    when {
+        htmlState.startsWith("loading", ignoreCase = true) || htmlState.isBlank() -> {
+            Text("Loading Content...")
+        }
+
+        htmlState.startsWith("Error:") -> {
+            Text(htmlState)
+        }
+
+        else -> {
+            HtmlDisplay(html = htmlState)
         }
     }
 }
+
+@Composable
+fun HtmlDisplay(html: String) {
+    AndroidView(
+        factory = { context ->
+            WebView(context).apply {
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                webViewClient = WebViewClient()
+            }
+        },
+        update = { webView ->
+            val previousHtml = webView.getTag(android.R.id.content) as? String
+            if (previousHtml != html) {
+                webView.setTag(android.R.id.content, html)
+                webView.loadDataWithBaseURL(
+                    "https://www.instagram.com",
+                    html,
+                    "text/html",
+                    "UTF-8",
+                    null
+                )
+            }
+        }
+    )
+}
+

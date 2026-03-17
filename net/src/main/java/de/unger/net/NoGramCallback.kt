@@ -3,24 +3,32 @@ package de.unger.net
 import android.net.http.HttpException
 import android.net.http.UrlRequest
 import android.net.http.UrlResponseInfo
+import android.util.Log
 import java.nio.ByteBuffer
+import java.nio.charset.Charset
 
-class NoGramCallback(private val onSuccess: (HashMap<UrlResponseInfo, ByteArray>) -> Unit) :
+class NoGramCallback(
+    private val onSuccess: (String) -> Unit,
+    private val onError: (String) -> Unit
+) :
     UrlRequest.Callback {
-    val currentBuffers = HashMap<UrlResponseInfo, ByteArray>()
+    private val resultStream = java.io.ByteArrayOutputStream(1024 * 64)
+    private var responseCharset: Charset = Charsets.UTF_8
     override fun onCanceled(
-        p0: UrlRequest,
-        p1: UrlResponseInfo?
+        request: UrlRequest,
+        info: UrlResponseInfo?
     ) {
-        print("cancelled: $p0, $p1")
+        Log.d("NoGramCallback", "cancelled: $request, $info")
+        onError("Request cancelled")
     }
 
     override fun onFailed(
-        p0: UrlRequest,
-        p1: UrlResponseInfo?,
-        p2: HttpException
+        request: UrlRequest,
+        info: UrlResponseInfo?,
+        error: HttpException
     ) {
-        print("failed: $p0, $p1, $p2")
+        Log.e("NoGramCallback", "failed: $request, $info", error)
+        onError(error.message ?: "Request failed")
     }
 
     override fun onReadCompleted(
@@ -28,42 +36,51 @@ class NoGramCallback(private val onSuccess: (HashMap<UrlResponseInfo, ByteArray>
         info: UrlResponseInfo,
         byteBuffer: ByteBuffer
     ) {
-        // 1. Flip the buffer to prepare it for reading
         byteBuffer.flip()
 
-        // 2. Extract bytes (e.g., into a ByteArray)
-        val bytes = ByteArray(byteBuffer.remaining())
-        byteBuffer.get(bytes)
-        info.headers.asList.forEach {
-            println("${it.component1()}: ${it.component2()}")
+        if (byteBuffer.hasRemaining()) {
+            val bytes = ByteArray(byteBuffer.remaining())
+            byteBuffer.get(bytes)
+            resultStream.write(bytes)
         }
-        // Example: Append these bytes to a global output stream or list
-        // myAccumulatedData.write(bytes)
-        currentBuffers[info] = bytes
+
+        byteBuffer.clear()
+        request.read(byteBuffer)
     }
 
     override fun onRedirectReceived(
-        p0: UrlRequest,
-        p1: UrlResponseInfo,
-        p2: String
+        request: UrlRequest,
+        info: UrlResponseInfo,
+        newLocationUrl: String
     ) {
-        p0.followRedirect()
+        request.followRedirect()
     }
 
     override fun onResponseStarted(
-        p0: UrlRequest,
-        p1: UrlResponseInfo
+        request: UrlRequest,
+        info: UrlResponseInfo
     ) {
-        p0.read(ByteBuffer.allocateDirect(1024 * 1024 * 16))
+        resultStream.reset()
+        responseCharset = extractCharset(info) ?: Charsets.UTF_8
+        request.read(ByteBuffer.allocateDirect(64 * 1024))
     }
 
     override fun onSucceeded(
-        p0: UrlRequest,
-        p1: UrlResponseInfo
+        request: UrlRequest,
+        info: UrlResponseInfo
     ) {
-        print("success:$p0, $p1")
-        onSuccess(currentBuffers)
-        currentBuffers.clear()
+        val htmlContent = resultStream.toString(responseCharset.name())
+        onSuccess(htmlContent)
+    }
+
+    private fun extractCharset(info: UrlResponseInfo): Charset? {
+        val contentType = info.headers.asMap["Content-Type"]?.firstOrNull() ?: return null
+        val charsetName = contentType
+            .substringAfter("charset=", "")
+            .trim()
+            .ifEmpty { return null }
+
+        return runCatching { Charset.forName(charsetName) }.getOrNull()
     }
 
 }
