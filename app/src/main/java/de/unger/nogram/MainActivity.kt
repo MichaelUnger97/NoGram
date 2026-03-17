@@ -72,10 +72,17 @@ class MainActivity : ComponentActivity() {
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.loadsImagesAutomatically = true
-                        CookieManager.getInstance().setAcceptCookie(true)
-                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-                        CookieManager.getInstance().flush()
-                        webViewClient = WebViewClient()
+                        val cookieManager = CookieManager.getInstance()
+                        cookieManager.setAcceptCookie(true)
+                        cookieManager.setAcceptThirdPartyCookies(this, true)
+
+                        webViewClient = object : WebViewClient() {
+                            override fun onPageFinished(view: WebView?, url: String?) {
+                                super.onPageFinished(view, url)
+                                // Save cookies to disk when a page finishes loading
+                                cookieManager.flush()
+                            }
+                        }
                     }
                 },
                 update = { webView ->
@@ -97,7 +104,30 @@ class MainActivity : ComponentActivity() {
             )
             Button(
                 onClick = {
-                    this@MainActivity.findViewById<WebView>(R.id.webview).scrollBy(0, -500)
+                    val webView = this@MainActivity.findViewById<WebView>(R.id.webview)
+
+                    // Convert the space-separated classes into a CSS selector (e.g., .class1.class2.class3)
+                    // JavaScript to find the specific last child and click it
+                    val script = """
+    (function() {
+        // Find the element that handles the snap-scrolling
+        var snapContainer = Array.from(document.querySelectorAll('div')).find(el => {
+            var style = window.getComputedStyle(el);
+            return style.scrollSnapType.includes('mandatory');
+        });
+
+        if (snapContainer) {
+            // Instagram Reels often use a specific height for each child.
+            // You can trigger a scroll to the next "snap" point manually:
+            snapContainer.scrollBy({
+                top: snapContainer.clientHeight,
+                behavior: 'smooth'
+            });
+        }
+    })();
+""".trimIndent()
+
+                    webView.evaluateJavascript(script, null)
                 },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
