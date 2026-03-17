@@ -69,6 +69,7 @@ class NoGramCallback(
         request: UrlRequest,
         info: UrlResponseInfo
     ) {
+        Log.i("Success", "The request succeeded")
         val htmlContent = resultStream.toString(responseCharset.name())
         onSuccess(htmlContent)
     }

@@ -1,6 +1,7 @@
 package de.unger.nogram
 
 import android.os.Bundle
+import android.webkit.CookieManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
@@ -55,19 +56,23 @@ fun HtmlDisplay(html: String) {
             WebView(context).apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
+                settings.loadsImagesAutomatically = true
+                CookieManager.getInstance().setAcceptCookie(true)
+                CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                 webViewClient = WebViewClient()
             }
         },
         update = { webView ->
-            val previousHtml = webView.getTag(android.R.id.content) as? String
+            val previousHtml = webView.tag as? String
             if (previousHtml != html) {
-                webView.setTag(android.R.id.content, html)
-                webView.loadDataWithBaseURL(
-                    "https://www.instagram.com",
+                webView.tag = html
+                webView.loadUrl(
+                    "https://www.instagram.com/"/*,
                     html,
                     "text/html",
                     "UTF-8",
-                    null
+                    "https://www.instagram.com/"
+                    */
                 )
             }
         }

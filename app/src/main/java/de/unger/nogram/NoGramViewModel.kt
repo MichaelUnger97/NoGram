@@ -18,15 +18,14 @@ class NoGramViewModel(application: Application) : AndroidViewModel(application) 
     fun home() {
         _uiState.value = "loading..."
 
-        val callback = NoGramCallback(
+        NoGramRequests(
+            engine, NoGramCallback(
             onSuccess = { response ->
                 _uiState.value = response
             },
             onError = { error ->
                 _uiState.value = "Error: $error"
             }
-        )
-
-        NoGramRequests(engine, callback).home()
+        )).home()
     }
 }
